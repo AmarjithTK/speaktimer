@@ -3,7 +3,7 @@
 
   // ── Random palette on every visit ────────────────────────────────────────
   const palettes = [
-    { primary: "#440d49", accent: "#c3ddc0", bg: "#d4bff9" }, // original lavender
+    { primary: "#440d49", accent: "#c3ddc0", bg: "#d4bff9" }, // lavender
     { primary: "#1a3d5c", accent: "#b8ddf0", bg: "#cde8f5" }, // ocean blue
     { primary: "#3b1f0a", accent: "#f5d9a0", bg: "#fcefd4" }, // warm sand
     { primary: "#1b3d2e", accent: "#a8dfc0", bg: "#c8f0da" }, // forest green
@@ -13,6 +13,16 @@
     { primary: "#0d3d3d", accent: "#a0ddd8", bg: "#c4eeec" }, // teal
     { primary: "#5c3d00", accent: "#f0dda0", bg: "#faefd4" }, // amber
     { primary: "#2d0d3d", accent: "#d0b8f0", bg: "#e5d4f5" }, // plum
+    { primary: "#3d1a00", accent: "#ffd6a0", bg: "#ffe8c8" }, // burnt orange
+    { primary: "#003d3d", accent: "#a0f0e0", bg: "#c0f5ee" }, // aqua
+    { primary: "#1a1a1a", accent: "#e0e0e0", bg: "#f0f0f0" }, // monochrome
+    { primary: "#3d0033", accent: "#f5b8e8", bg: "#fad4f2" }, // rose
+    { primary: "#003d1a", accent: "#b8f5c8", bg: "#d4fae0" }, // mint
+    { primary: "#1a2d3d", accent: "#b8cce8", bg: "#d4e0f5" }, // slate blue
+    { primary: "#2d2d00", accent: "#e8e0a0", bg: "#f5f0c8" }, // olive
+    { primary: "#3d001a", accent: "#f5b8c8", bg: "#fad4dc" }, // crimson blush
+    { primary: "#001a3d", accent: "#b8d0f5", bg: "#d4e4fa" }, // royal navy
+    { primary: "#1a3d00", accent: "#c8f0a0", bg: "#dff5c4" }, // lime
   ];
   const palette = palettes[Math.floor(Math.random() * palettes.length)];
   const root = document.documentElement;
@@ -97,12 +107,13 @@
   // ── localStorage ──────────────────────────────────────────────────────────
   const lsGet = (k) => localStorage.getItem(k);
   const lsSave = () => {
-    localStorage.setItem("SoundChosen",       SoundChosen);
-    localStorage.setItem("NoiseVolume",       NoiseVolume.toString());
-    localStorage.setItem("SpeakVolume",       SpeakVolume.toString());
-    localStorage.setItem("ClockOn",           clockOn.toString());
-    localStorage.setItem("ClockIntervalMins", clockIntervalMins.toString());
-    localStorage.setItem("TimerSpeakOn",      timerSpeakOn.toString());
+    localStorage.setItem("SoundChosen",         SoundChosen);
+    localStorage.setItem("NoiseVolume",         NoiseVolume.toString());
+    localStorage.setItem("SpeakVolume",         SpeakVolume.toString());
+    localStorage.setItem("ClockOn",             clockOn.toString());
+    localStorage.setItem("ClockIntervalMins",   clockIntervalMins.toString());
+    localStorage.setItem("TimerSpeakOn",        timerSpeakOn.toString());
+    localStorage.setItem("TimerAnnounceEvery",  timerAnnounceEvery.toString());
   };
 
   // ── Sound / volume ────────────────────────────────────────────────────────
@@ -173,6 +184,11 @@
   //  MODULE B — Timer Speech
   // ══════════════════════════════════════════════════════════════════════════
   let timerSpeakOn = lsGet("TimerSpeakOn") !== "false";
+  // How often to announce remaining time (every N minutes)
+  const timerAnnounceOptions = [1, 2, 5, 10, 15, 20, 30];
+  let timerAnnounceEvery = lsGet("TimerAnnounceEvery")
+    ? parseInt(lsGet("TimerAnnounceEvery"))
+    : 1;
 
   const tick = () => {
     const mins = Math.floor(seconds / 60);
@@ -180,7 +196,7 @@
     seconds--;
     timervalue = `${mins >= 10 ? mins : "0" + mins}:${secs >= 10 ? secs : "0" + secs}`;
 
-    if (secs === 0 && seconds !== 0 && timerSpeakOn)
+    if (secs === 0 && seconds !== 0 && timerSpeakOn && mins % timerAnnounceEvery === 0)
       speakTimer(`${mins} minute${mins !== 1 ? "s" : ""} remaining`);
 
     if (seconds === 0) {
@@ -260,8 +276,13 @@
       </div>
       <label class="check-label">
         <input type="checkbox" bind:checked={timerSpeakOn} on:change={lsSave} />
-        Speak minutes remaining
+        Speak remaining — every
       </label>
+      <select bind:value={timerAnnounceEvery} on:change={lsSave} disabled={!timerSpeakOn}>
+        {#each timerAnnounceOptions as m}
+          <option value={m}>{m} min</option>
+        {/each}
+      </select>
     </section>
 
     <!-- ═══ Presets ═══ -->
