@@ -42,7 +42,7 @@
   // ══════════════════════════════════════════════════════════════════════════
   //  SPEECH ENGINE
   //  - Single queue → zero overlap between modules
-  //  - Cycles through all available TTS voices for variety
+  //  - Cycles voices for variety (web: by voice object; native: by pitch/rate)
   //  - Modules A & B are kept ≥ 10 s apart
   // ══════════════════════════════════════════════════════════════════════════
   let speechQueue    = [];
@@ -50,7 +50,7 @@
   let voices         = [];
   let voiceIndex     = 0;
 
-  // Called by Svelte once DOM is ready; also fires on voiceschanged
+  // Web Speech API voice loading
   function loadVoices() {
     const v = speechSynthesis.getVoices();
     if (v.length) voices = v.filter(v => v.lang.startsWith("en"));
@@ -59,27 +59,90 @@
   if (typeof speechSynthesis !== "undefined")
     speechSynthesis.onvoiceschanged = loadVoices;
 
+  // ── Pleasant voice picker ─────────────────────────────────────────────────
+  // Ranks available English voices: Google > known-pleasant names > first available
+  const PLEASANT_NAMES = [
+    "google", "samantha", "karen", "victoria", "moira", "fiona",
+    "veena", "tessa", "allison", "ava", "susan", "zira",
+  ];
+  function pleasantVoice() {
+    if (!voices.length) return null;
+    for (const name of PLEASANT_NAMES) {
+      const v = voices.find(v => v.name.toLowerCase().includes(name));
+      if (v) return v;
+    }
+    return voices[0];
+  }
+
+  // ── Motivational time-awareness quotes (cyclic) ───────────────────────────
+  const quotes = [
+    "Use this moment well — it won't come back.",
+    "Small steps every hour build the life you want.",
+    "Your attention is your most valuable currency.",
+    "Time is the only resource you cannot earn back.",
+    "What you do right now shapes who you become.",
+    "Every minute of focus is an investment in your future.",
+    "Be present. This hour is a gift.",
+    "Clarity comes to those who use their time with intention.",
+    "Progress, not perfection, is what time rewards.",
+    "An hour of deep work is worth a day of distraction.",
+    "Don't count the hours; make the hours count.",
+    "Your future self will thank you for the work you do now.",
+    "One focused hour can change a whole day.",
+    "Time flies — but you are the pilot.",
+    "Do something today that your future self will be proud of.",
+    "Momentum is built one intentional moment at a time.",
+    "The best time to start was yesterday. The second best is now.",
+    "Each hour is a fresh canvas. Paint it well.",
+    "Discipline is choosing what you want most over what you want now.",
+    "Greatness is built minute by minute.",
+    "A year from now you'll wish you had started today.",
+    "Your work right now is compounding silently.",
+    "Focused effort now creates freedom later.",
+    "Every hour of rest is fuel. Every hour of work is progress.",
+    "Time is the great equaliser — what matters is what you do with it.",
+    "Stay the course. The results are coming.",
+    "Consistency over time is unstoppable.",
+    "You have enough time for what truly matters.",
+    "Let this hour be better than the last.",
+    "Breathe, focus, and make this moment count.",
+  ];
+  let quoteIndex = 0;
+
   function drainQueue() {
     if (isSpeechActive || speechQueue.length === 0) return;
     isSpeechActive = true;
+    
+    // Dequeue item and parse string vs object (for backwards compatibility if just a string)
+    const item = speechQueue.shift();
+    const isObj = typeof item === "object";
+    const text  = isObj ? item.text : item;
+    const isQuote = isObj ? item.isQuote : false;
+    const delay = isObj ? (item.delay || 0) : 0;
 
-    const text   = speechQueue.shift();
-    const speech = new SpeechSynthesisUtterance(text);
-
-    // Cycle through voices for variety
-    if (voices.length > 0) {
-      speech.voice  = voices[voiceIndex % voices.length];
-      voiceIndex++;
-    }
-    speech.pitch  = 0.75;
-    speech.rate   = 0.95;
-    speech.volume = SpeakVolume;
-    speech.onend  = () => { isSpeechActive = false; drainQueue(); };
-    speech.onerror = () => { isSpeechActive = false; drainQueue(); };
-    speechSynthesis.speak(speech);
+    setTimeout(() => {
+      const speech = new SpeechSynthesisUtterance(text);
+      if (isQuote) {
+        const pv = pleasantVoice();
+        if (pv) speech.voice = pv;
+        speech.pitch  = 1.05;
+        speech.rate   = 0.9;
+      } else {
+        if (voices.length > 0) {
+          speech.voice = voices[voiceIndex % voices.length];
+          voiceIndex++;
+        }
+        speech.pitch  = 0.75;
+        speech.rate   = 0.95;
+      }
+      speech.volume = SpeakVolume;
+      speech.onend  = () => { isSpeechActive = false; drainQueue(); };
+      speech.onerror = () => { isSpeechActive = false; drainQueue(); };
+      speechSynthesis.speak(speech);
+    }, delay);
   }
 
-  function speak(text) { speechQueue.push(text); drainQueue(); }
+  function speak(text) { speechQueue.push({ text }); drainQueue(); }
 
   // ── 10-second gap enforcement between Module A & B ────────────────────────
   let lastClockSpoke = 0;
@@ -88,7 +151,16 @@
   function speakClock(text) {
     const gap  = 10_000;
     const wait = Math.max(0, gap - (Date.now() - lastTimerSpoke));
-    setTimeout(() => { lastClockSpoke = Date.now(); speak(text); }, wait);
+    setTimeout(() => {
+      lastClockSpoke = Date.now();
+      speak(text);
+      
+      // Queue quote 5 seconds after time announcement finishes
+      const quoteText = quotes[quoteIndex % quotes.length];
+      quoteIndex++;
+      speechQueue.push({ text: quoteText, isQuote: true, delay: 5_000 });
+      drainQueue();
+    }, wait);
   }
 
   function speakTimer(text) {
