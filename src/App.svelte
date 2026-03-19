@@ -3,26 +3,26 @@
 
   // ── Random palette on every visit ────────────────────────────────────────
   const palettes = [
-    { primary: "#440d49", accent: "#c3ddc0", bg: "#d4bff9" }, // lavender
-    { primary: "#1a3d5c", accent: "#b8ddf0", bg: "#cde8f5" }, // ocean blue
-    { primary: "#3b1f0a", accent: "#f5d9a0", bg: "#fcefd4" }, // warm sand
-    { primary: "#1b3d2e", accent: "#a8dfc0", bg: "#c8f0da" }, // forest green
-    { primary: "#5c1a1a", accent: "#f0c4b8", bg: "#f5dcd4" }, // terracotta
-    { primary: "#1e1e5c", accent: "#c4c8f0", bg: "#d8dbf5" }, // midnight indigo
-    { primary: "#4a2060", accent: "#e0c8f5", bg: "#eeddf7" }, // deep violet
-    { primary: "#0d3d3d", accent: "#a0ddd8", bg: "#c4eeec" }, // teal
-    { primary: "#5c3d00", accent: "#f0dda0", bg: "#faefd4" }, // amber
-    { primary: "#2d0d3d", accent: "#d0b8f0", bg: "#e5d4f5" }, // plum
-    { primary: "#3d1a00", accent: "#ffd6a0", bg: "#ffe8c8" }, // burnt orange
-    { primary: "#003d3d", accent: "#a0f0e0", bg: "#c0f5ee" }, // aqua
-    { primary: "#1a1a1a", accent: "#e0e0e0", bg: "#f0f0f0" }, // monochrome
-    { primary: "#3d0033", accent: "#f5b8e8", bg: "#fad4f2" }, // rose
-    { primary: "#003d1a", accent: "#b8f5c8", bg: "#d4fae0" }, // mint
-    { primary: "#1a2d3d", accent: "#b8cce8", bg: "#d4e0f5" }, // slate blue
-    { primary: "#2d2d00", accent: "#e8e0a0", bg: "#f5f0c8" }, // olive
-    { primary: "#3d001a", accent: "#f5b8c8", bg: "#fad4dc" }, // crimson blush
-    { primary: "#001a3d", accent: "#b8d0f5", bg: "#d4e4fa" }, // royal navy
-    { primary: "#1a3d00", accent: "#c8f0a0", bg: "#dff5c4" }, // lime
+    { primary: "#1A051D", accent: "#E5D4F5", bg: "#F4EFFF" }, // HC lavender
+    { primary: "#0A1824", accent: "#CDE8F5", bg: "#EAF6FF" }, // HC ocean blue
+    { primary: "#201004", accent: "#FCEFD4", bg: "#FFF8EA" }, // HC warm sand
+    { primary: "#0D1E16", accent: "#C8F0DA", bg: "#EEFAF3" }, // HC forest green
+    { primary: "#2A0B0B", accent: "#F5DCD4", bg: "#FFF0EB" }, // HC terracotta
+    { primary: "#0D0D2A", accent: "#D8DBF5", bg: "#F1F2FF" }, // HC midnight indigo
+    { primary: "#210D2C", accent: "#EEDDF7", bg: "#F8F0FF" }, // HC deep violet
+    { primary: "#051A1A", accent: "#C4EEEC", bg: "#EFFFFD" }, // HC teal
+    { primary: "#2A1C00", accent: "#FAEFD4", bg: "#FFFBEA" }, // HC amber
+    { primary: "#14051D", accent: "#E5D4F5", bg: "#F6EEFF" }, // HC plum
+    { primary: "#200D00", accent: "#FFE8C8", bg: "#FFF4EA" }, // HC burnt orange
+    { primary: "#001E1E", accent: "#C0F5EE", bg: "#EAFFFC" }, // HC aqua
+    { primary: "#000000", accent: "#E0E0E0", bg: "#FFFFFF" }, // HC monochrome
+    { primary: "#1C0017", accent: "#FAD4F2", bg: "#FFF0FA" }, // HC rose
+    { primary: "#001C0C", accent: "#D4FAE0", bg: "#EEFFF3" }, // HC mint
+    { primary: "#0B141C", accent: "#D4E0F5", bg: "#F0F5FF" }, // HC slate blue
+    { primary: "#1A1A00", accent: "#F5F0C8", bg: "#FEFFEA" }, // HC olive
+    { primary: "#25000F", accent: "#FAD4DC", bg: "#FFF0F4" }, // HC crimson blush
+    { primary: "#000B1C", accent: "#D4E4FA", bg: "#F0F6FF" }, // HC royal navy
+    { primary: "#0B1C00", accent: "#DFF5C4", bg: "#F4FFEA" }, // HC lime
   ];
   const palette = palettes[Math.floor(Math.random() * palettes.length)];
   const root = document.documentElement;
@@ -156,9 +156,11 @@
       speak(text);
       
       // Queue quote 5 seconds after time announcement finishes
-      const quoteText = quotes[quoteIndex % quotes.length];
-      quoteIndex++;
-      speechQueue.push({ text: quoteText, isQuote: true, delay: 5_000 });
+      if (motivationOn) {
+        const quoteText = quotes[quoteIndex % quotes.length];
+        quoteIndex++;
+        speechQueue.push({ text: quoteText, isQuote: true, delay: 5_000 });
+      }
       drainQueue();
     }, wait);
   }
@@ -184,6 +186,7 @@
     localStorage.setItem("SpeakVolume",         SpeakVolume.toString());
     localStorage.setItem("ClockOn",             clockOn.toString());
     localStorage.setItem("ClockIntervalMins",   clockIntervalMins.toString());
+    localStorage.setItem("MotivationOn",        motivationOn.toString());
     localStorage.setItem("TimerSpeakOn",        timerSpeakOn.toString());
     localStorage.setItem("TimerAnnounceEvery",  timerAnnounceEvery.toString());
   };
@@ -222,14 +225,21 @@
   const clockIntervalOptions = [1, 2, 5, 10, 15, 20, 30, 60];
   let clockOn           = lsGet("ClockOn") === "true";
   let clockIntervalMins = lsGet("ClockIntervalMins") ? parseInt(lsGet("ClockIntervalMins")) : 30;
+  let motivationOn      = lsGet("MotivationOn") !== "false";
   let clockTimer        = null;
   let currentTimeDisplay = "";
 
   const displayTick = setInterval(() => {
-    currentTimeDisplay = new Date().toLocaleTimeString([], {
-      hour: "2-digit", minute: "2-digit", hour12: true,
-    });
-  }, 1000);
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes().toString().padStart(2, '0');
+    const s = now.getSeconds().toString().padStart(2, '0');
+    const ms = now.getMilliseconds().toString().padStart(3, '0');
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    const hStr = h12.toString().padStart(2, '0');
+    currentTimeDisplay = `${hStr}:${m}:${s}.${ms} ${ampm}`;
+  }, 30);
 
   function timeToWords() {
     const d = new Date(), h = d.getHours(), m = d.getMinutes();
@@ -328,6 +338,10 @@
           <option value={m}>{m} min</option>
         {/each}
       </select>
+      <label class="check-label">
+        <input type="checkbox" bind:checked={motivationOn} on:change={lsSave} />
+        Speak motivational quote after time
+      </label>
       <button class="toggle {clockOn ? 'is-on' : 'is-off'}" on:click={toggleClock}>
         {clockOn ? "🔔 ON" : "🔕 OFF"}
       </button>
@@ -486,6 +500,7 @@
     font-weight: 700;
     color: var(--primary);
     letter-spacing: 0.03em;
+    font-variant-numeric: tabular-nums;
   }
 
   /* Countdown */
