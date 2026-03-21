@@ -439,6 +439,7 @@
   let fullscreenStartLandscape = lsGet("FullscreenStartLandscape") === "true";
 
   let showFullscreenFocus = false;
+  let fullscreenUseBrowserApi = false;
   let fullscreenShowTimer = false;
   let showFullscreenControls = true;
   let fullscreenControlsHideTimer = null;
@@ -477,12 +478,15 @@
     }
   }
 
-  async function openFullscreenFocus() {
+  async function openFullscreenFocus({ useBrowserFullscreen = false } = {}) {
     showFullscreenFocus = true;
+    fullscreenUseBrowserApi = useBrowserFullscreen;
     fullscreenShowTimer = interval != null;
     showFullscreenControls = true;
     restartFullscreenControlsTimer();
-    await enterFullscreenApi();
+    if (fullscreenUseBrowserApi) {
+      await enterFullscreenApi();
+    }
     await requestWakeLock();
   }
 
@@ -491,7 +495,10 @@
     showFullscreenControls = true;
     clearTimeout(fullscreenControlsHideTimer);
     releaseWakeLock();
-    await exitFullscreenApi();
+    if (fullscreenUseBrowserApi) {
+      await exitFullscreenApi();
+    }
+    fullscreenUseBrowserApi = false;
   }
 
   function toggleFullscreenOverlayControls() {
@@ -572,7 +579,10 @@
 <div class="shell">
   <div class="toolbar">
     <div class="app-title">Lifer</div>
-    <button on:click={openFullscreenFocus} title="Fullscreen Focus">⛶ Fullscreen Focus</button>
+    <div class="toolbar-actions">
+      <button on:click={() => openFullscreenFocus()} title="Tab Focus Mode">◱ Focus (Tab)</button>
+      <button on:click={() => openFullscreenFocus({ useBrowserFullscreen: true })} title="Browser Fullscreen Focus">⛶ Focus (Fullscreen)</button>
+    </div>
   </div>
 
   <div class="grid">
@@ -746,22 +756,30 @@
 {#if showFullscreenFocus}
   <div
     class="fullscreen-focus {fullscreenDarkTheme ? 'dark' : 'light'} {fullscreenDimBrightness ? 'dim' : ''} {fullscreenStartLandscape ? 'landscape' : ''}"
+    role="button"
+    tabindex="0"
     on:click={toggleFullscreenOverlayControls}
+    on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleFullscreenOverlayControls(); }}
   >
     <div class="focus-card">
       {#if fullscreenShowTimer}
-        <div class="focus-label">REMAINING</div>
         <div class="focus-value">{timervalue}</div>
       {:else}
-        <div class="focus-label">CURRENT TIME</div>
         <div class="focus-value clock">{currentTimeDisplay}</div>
       {/if}
     </div>
 
     {#if showFullscreenControls}
-      <div class="focus-controls" on:click|stopPropagation={handleFullscreenControlInteraction}>
+      <div
+        class="focus-controls"
+        role="button"
+        tabindex="0"
+        on:click|stopPropagation={handleFullscreenControlInteraction}
+        on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleFullscreenControlInteraction(); }}
+      >
         <button on:click={() => { fullscreenShowTimer = !fullscreenShowTimer; }}>Toggle Clock/Timer</button>
         <button on:click={() => { fullscreenDarkTheme = !fullscreenDarkTheme; lsSave(); }}>Toggle Theme</button>
+        <button on:click={() => { if (!fullscreenUseBrowserApi) openFullscreenFocus({ useBrowserFullscreen: true }); }}>Go Fullscreen</button>
         <button on:click={closeFullscreenFocus}>Exit</button>
       </div>
     {/if}
@@ -808,6 +826,11 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+  }
+
+  .toolbar-actions {
+    display: flex;
+    gap: 0.45rem;
   }
 
   .app-title {
@@ -1054,32 +1077,26 @@
   .focus-card {
     border: 2px solid currentColor;
     border-radius: 14px;
-    padding: 1.25rem;
-    width: min(95vw, 1100px);
+    padding: 1.6rem;
+    width: min(98vw, 1400px);
+    height: min(92vh, 860px);
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    justify-content: center;
     text-align: center;
     z-index: 2;
     background: color-mix(in srgb, currentColor 8%, transparent);
   }
 
-  .focus-label {
-    opacity: 0.75;
-    font-size: 1rem;
-    letter-spacing: 0.08em;
-    font-weight: 700;
-  }
-
   .focus-value {
-    font-size: clamp(3rem, 13vw, 10rem);
+    font-size: clamp(5rem, 20vw, 16rem);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     line-height: 1;
   }
 
   .focus-value.clock {
-    font-size: clamp(2.2rem, 8vw, 6rem);
+    font-size: clamp(3.2rem, 11vw, 9rem);
   }
 
   .focus-controls {
@@ -1090,6 +1107,11 @@
     display: flex;
     gap: 0.5rem;
     z-index: 3;
+  }
+
+  .focus-controls button {
+    font-size: 1rem;
+    padding: 0.45rem 0.9rem;
   }
 
   @media (max-width: 540px) {
@@ -1120,6 +1142,11 @@
       width: calc(100% - 2rem);
       left: 1rem;
       transform: none;
+    }
+
+    .toolbar-actions {
+      flex-direction: column;
+      width: 100%;
     }
   }
 </style>
